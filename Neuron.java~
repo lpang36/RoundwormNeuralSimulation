@@ -1,0 +1,205 @@
+//package wormSimulation;
+
+import java.util.Vector;
+import java.util.Arrays;
+import java.util.Comparator;
+import edu.princeton.cs.algs4.MinPQ;
+
+//PROBLEM
+//during initialization, most of the neurons are useless as described
+//solution: part array into 2, first half directly recieve input, second half directly output, some combo of synapses in between
+//cooler alternative: do a percolation until input, output connected
+//this is hard to do with genes tho
+
+//MAP SIGNALS TO SIGMOID!
+
+public class Neuron {
+  private Vector<Synapse> inputs = new Vector<Synapse> ();
+  private Vector<Synapse> outputs = new Vector<Synapse> ();
+  private int inputCount = 0;
+  private int outputCount = 0;
+  //private double[] genome;
+  //private double[] expressedGenome;
+  boolean[] readFrom;
+  //int[] weightings;
+  double[] times;
+  InputKey[] initReadIn;
+  MinPQ<InputKey> readIn;
+  double maxTime;
+  //private double[] readInputs;
+  //double sent;
+  //boolean inConn; //don't need this now 
+  //boolean outConn; //might be useless
+  double time;
+  //Integer[] readTimes;
+  private double threshold; //no idea what to do with this
+  /*
+  public Neuron (double[] g) {
+    genome = g;
+  }
+  */
+  public Neuron (double x) {
+    time = 0;
+    threshold = x;
+  }
+  public void addInputSynapse (Synapse S) {
+    inputs.add(S);
+    S.outNum = inputCount;
+    inputCount++;
+  }
+  public void addOutputSynapse (Synapse S) {
+    outputs.add(S);
+    S.inNum = outputCount;
+    outputCount++;
+  }
+  public void initialize() { //IMPLEMENT GENOME
+    /*
+    expressedGenome = new double[inputCount];
+    for (int i = 0; i<inputCount; i++) {
+      expressedGenome[i] = genome[i];
+    }
+    */
+    //System.out.println(inputCount);
+    readFrom = new boolean[inputCount];
+    initReadIn = new InputKey[inputCount];
+    //weightings = new int[inputCount];
+    times = new double[inputCount];
+    maxTime = 0;
+    //readTimes = new Integer[inputCount];
+    readIn = new MinPQ<InputKey> ();
+    //readInputs = new double[Math.max(inputCount,1)];
+  }
+  public void read(InputKey x, int pos) {
+    //System.out.println(x.value);
+    //readInputs[S.outNum] = x;
+    //readTimes[S.outNum] = S.time;
+    readFrom[pos] = true;
+    initReadIn[pos] = x;
+    times[pos] = x.time;
+    if (x.value!=0&&x.time>maxTime) {
+      maxTime = x.time;
+    }
+    boolean allRead = true;
+    for (int i = 0; i<inputCount; i++) {
+      if (!readFrom[i]) {
+        allRead = false;
+        return;
+      }
+    }
+    if (allRead) {
+      //System.out.println(allRead);
+      this.process();
+    }
+  }
+  public void read(double x) { //do an assert for inputCount==0?
+    //time = 0;
+    //System.out.println(x);
+    //System.out.println(Runtime.getRuntime().freeMemory());
+    //sent = x;
+    InputKey key = new InputKey (1/x,1); 
+        //System.out.println(key.time);
+    this.send(key);
+  }
+  public void process () {
+    /*
+    sent = 0;
+    for (int i = 0; i<inputCount; i++) {
+      sent = sent+expressedGenome[i]*readInputs[i];
+    }
+    */
+    //sent = mapSignal(sent);
+    //ArrayIndexComparator comp = new ArrayIndexComparator(readTimes);
+    //Integer[] indices = comp.createIndexArray();
+    //Arrays.sort(indices,comp);
+    //boolean loopFlag = true; //for testing
+    for (int i = 0; i<inputCount; i++) {
+      if (initReadIn[i].value!=0) {
+        double time = initReadIn[i].time;
+        //int j = 0; //for testing
+        while (time<=maxTime) { //might take a very long time
+          InputKey key = new InputKey (time,initReadIn[i].value);
+          time+=initReadIn[i].time;
+          key.index = i;
+          readIn.insert(key);
+          //j++;
+        }
+        //if (j!=0)
+          //loopFlag=false;
+          //System.out.println("wtf");
+      }
+    }
+          //if (loopFlag)
+        //System.out.println("wtf");
+    //System.out.println(readIn.size()+" "+maxTime);
+    double sum = 0;
+    int count = 0;
+    while (!readIn.isEmpty()) {
+      InputKey key = readIn.delMin();
+      sum = sum+key.value;
+      //weightings[key.index] = count;
+      if (sum>=threshold) {
+        //System.out.println(count+" "+inputCount);
+        InputKey out = new InputKey (key.time,1);
+        for (int i = 0; i<inputCount; i++) {
+          /*
+          if (weightings[i]!=0) {
+            inputs.get(i).reweigh(weightings[i]/count); //linear rn
+          }
+          else {
+            inputs.get(i).reweigh(-0.1); //lol idk
+          }
+          */
+          inputs.get(i).reweigh(times[i]-key.time);
+        }
+        /*
+        for (int j = 0; j<=i; j++) {
+          inputs.get(indices[j]).reweigh(j/(i+0.0)); //maybe use something nonlinear
+        }
+        for (int j = i+1; j<indices.length; j++) {
+          inputs.get(indices[j]).reweigh((j-indices.length)/(i+0.0)); //maybe too harsh
+        }
+        */
+        //if (inputCount==3)
+          //System.out.println("not rip");
+        this.send(out);
+        return;
+      }
+      count++;
+    }
+    /*
+    for (int i = 0; i<indices.length; i++) {
+      inputs.get(indices[i]).reweigh(Math.random()*2-1); //maybe too harsh also idk if this should happen
+    }
+    */
+    //if (inputCount==3)
+      //System.out.println("rip ");
+    InputKey out = new InputKey (Double.POSITIVE_INFINITY,0);
+    //InputKey out = new InputKey(5,1); //bullshit
+    this.send(out);
+  }
+  /*
+  public double mapSignal (double x) { //sigmoid function for now
+    return x/(Math.sqrt(1+x*x));
+  }
+  */
+  public void send(InputKey x) {
+    //if (inputCount>=2&&inputCount<=4)
+      //System.out.println(x.time);
+    //System.out.println(x);
+    time = x.time;
+    for (int i = 0; i<outputCount; i++) {
+      outputs.get(i).fire(x);
+    }
+  }
+  /*
+  public int receivedInputs() { //for testing
+    int sum = 0;
+    for (int i = 0; i<inputCount; i++) {
+      if (!readFrom[i]) {
+        sum++;
+      }
+    }
+    return sum;
+  }
+  */
+}
